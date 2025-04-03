@@ -67,3 +67,16 @@ jobs:
 
       - name: Publish Build Info
         run: jf rt build-publish spring-petclinic 1.0.${{ github.run_number }}
+
+      # Because using "jf rt build-publish" can use 'jf build-scan <build-name> <build-number"
+      # Scans everything associated with the build: maven deps + docker layers
+      # If not using "jf rt build-publish" then can use 'jf scan target/myapp.jar' or 'jf docker scan myimage:tag'
+      # equivalent to 'jf xr scan --build spring-petclinic/1.0.${{ github.run_number }}' ?
+
+      - name: Xray Scan
+        run: jf build-scan spring-petclinic 1.0.${{ github.run_number }}
+
+        # run: jf build-scan spring-petclinic 1.0.${{ github.run_number }} --fail=false --vuln=true
+
+        #  --fail [Default: true] When using one of the flags --watches, --project or --repo-path and a 'Fail build' rule is matched, the command will return exit code 3. Set to false if you'd like to see violations with exit code 0.
+        # --vuln  [Default: false] Set to true if you'd like to receive all vulnerabilities, regardless of the policy configured in Xray. Ignored if provided 'format' is 'sarif'.
