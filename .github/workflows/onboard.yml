@@ -58,14 +58,9 @@ jobs:
 #          --build-name="spring-petclinic" \
 #          --build-number=1.0.${{ github.run_number }}
 
-      - name: Scan jar with XR (non-blocking)
-        run: jf scan target/spring-petclinic*.jar --fail=false
 
       - name: Build Docker Image
         run: jf docker build -t ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }} .
-
-      - name: Scan Docker image with XR (non-blocking)
-        run: jf docker scan ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }} --fail=false
 
       - name: Push Docker Image to JFrog
         run: jf docker push ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }}
@@ -77,41 +72,13 @@ jobs:
           jfrog rt build-add-git                # Add Git commit information
           jf rt build-publish spring-petclinic 1.0.${{ github.run_number }}
 
-      # Enable Build Indexing: enables xray to index and scan the build
-      # This can also be done in the UI but isn't scalable
-      # DON'T NEED TO DO THIS IF INSTEAD:
-      # - Create a watch that auto-indexes builds, or
-      # - Set up a project-wide policy for build indexing (IF USING JFROG PROJECTS)
-
-#      - name: Enable Build Indexing in Xray
-#        run: |
-#          BUILD_NUMBER="1.0.${{ github.run_number }}"
-#          PAYLOAD=$(cat <<EOF
-#          {
-#            "builds": [
-#              {
-#                "name": "spring-petclinic",
-#                "build_number": "$BUILD_NUMBER"
-#              }
-#            ]
-#          }
-#          EOF
-#          )
-#          jf rt curl -XPOST /xray/api/v1/index/build \
-#            -H "Content-Type: application/json" \
-#            -d "$PAYLOAD"
-
       # Because using "jf rt build-publish" can use 'jf build-scan <build-name> <build-number"
       # Scans everything associated with the build: maven deps + docker layers
       # If not using "jf rt build-publish" then can use 'jf scan target/myapp.jar' or 'jf docker scan myimage:tag'
       # equivalent to 'jf xr scan --build spring-petclinic/1.0.${{ github.run_number }}' ?
 
-      # without --fail=false, 'build-scan' expects at least one XR policy that has fail build on violation
-      # need to create a policy with fail build checked..and attach that to a watch
-
-      - name: Xray Scan with build-scan
+      - name: Xray Scan
         run: jf build-scan spring-petclinic 1.0.${{ github.run_number }}
-
 
         # run: jf build-scan spring-petclinic 1.0.${{ github.run_number }} --fail=false --vuln=true
 
