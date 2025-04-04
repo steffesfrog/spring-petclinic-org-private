@@ -52,33 +52,34 @@ jobs:
             --repo-resolve-releases ${{ vars.RT_PREFIX }}-libs-release \
             --repo-resolve-snapshots ${{ vars.RT_PREFIX }}-libs-snapshot \
 
-      # use JF so we can capture in buildinfo.
+      # use jf mvn instead of just mvn so we can capture in buildinfo.
       - name: Build and Test JF Maven
         run: jf mvn clean install -DskipTests
-#          --build-name="spring-petclinic" \
-#          --build-number=1.0.${{ github.run_number }}
 
+      - name: Scan jar with XR (non-blocking)
+        run: jf scan target/spring-petclinic*.jar --fail=false
 
       - name: Build Docker Image
         run: jf docker build -t ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }} .
+
+      - name: Scan Docker image with XR (non-blocking)
+        run: jf docker scan ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }} --fail=false
 
       - name: Push Docker Image to JFrog
         run: jf docker push ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }}
 
       - name: Publish Build Info
         run: |
-          jfrog rt build-collect-env           # Collect environment variables
-          jfrog rt build-add-dependencies .     # Add dependencies found in the current directory
-          jfrog rt build-add-git                # Add Git commit information
           jf rt build-publish spring-petclinic 1.0.${{ github.run_number }}
-
-      # Because using "jf rt build-publish" can use 'jf build-scan <build-name> <build-number"
-      # Scans everything associated with the build: maven deps + docker layers
-      # If not using "jf rt build-publish" then can use 'jf scan target/myapp.jar' or 'jf docker scan myimage:tag'
-      # equivalent to 'jf xr scan --build spring-petclinic/1.0.${{ github.run_number }}' ?
 
       - name: Xray Scan
         run: jf build-scan spring-petclinic 1.0.${{ github.run_number }}
+
+
+        # Because using "jf rt build-publish" can use 'jf build-scan <build-name> <build-number>"
+        # Scans everything associated with the build: maven deps + docker layers
+        # If not using "jf rt build-publish" then can use 'jf scan target/myapp.jar' or 'jf docker scan myimage:tag'
+        # equivalent to 'jf xr scan --build spring-petclinic/1.0.${{ github.run_number }}' ?
 
         # run: jf build-scan spring-petclinic 1.0.${{ github.run_number }} --fail=false --vuln=true
 
