@@ -52,18 +52,40 @@ jobs:
             --repo-resolve-releases ${{ vars.RT_PREFIX }}-libs-release \
             --repo-resolve-snapshots ${{ vars.RT_PREFIX }}-libs-snapshot \
 
-      # use JF so we can capture in buildinfo.
+      # use jf mvn instead of just mvn so we can capture in buildinfo.
       - name: Build and Test JF Maven
         run: jf mvn clean install -DskipTests
-#          --build-name="spring-petclinic" \
-#          --build-number=1.0.${{ github.run_number }}
 
+      - name: Scan jar with XR (non-blocking)
+        run: jf scan target/spring-petclinic*.jar --fail=false
 
       - name: Build Docker Image
         run: jf docker build -t ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }} .
+
+      - name: Scan Docker image with XR (non-blocking)
+        run: jf docker scan ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }} --fail=false
 
       - name: Push Docker Image to JFrog
         run: jf docker push ${{ vars.RT_DOCKER_REGISTRY }}spring-petclinic:1.0.${{ github.run_number }}
 
       - name: Publish Build Info
-        run: jf rt build-publish spring-petclinic 1.0.${{ github.run_number }}
+        run: |
+          jf rt build-publish spring-petclinic 1.0.${{ github.run_number }}
+
+      - name: Xray Scan
+        run: jf build-scan spring-petclinic 1.0.${{ github.run_number }}
+
+#      # Promote build to production
+#      - name: Promote Build to Production
+#        run: jf rt build-promote spring-petclinic 1.0.${{ github.run_number }} <local-repo> --status=production
+
+
+        # Because using "jf rt build-publish" can use 'jf build-scan <build-name> <build-number>"
+        # Scans everything associated with the build: maven deps + docker layers
+        # If not using "jf rt build-publish" then can use 'jf scan target/myapp.jar' or 'jf docker scan myimage:tag'
+        # equivalent to 'jf xr scan --build spring-petclinic/1.0.${{ github.run_number }}' ?
+
+        # run: jf build-scan spring-petclinic 1.0.${{ github.run_number }} --fail=false --vuln=true
+
+        #  --fail [Default: true] When using one of the flags --watches, --project or --repo-path and a 'Fail build' rule is matched, the command will return exit code 3. Set to false if you'd like to see violations with exit code 0.
+        # --vuln  [Default: false] Set to true if you'd like to receive all vulnerabilities, regardless of the policy configured in Xray. Ignored if provided 'format' is 'sarif'.
