@@ -75,6 +75,10 @@ jobs:
       - name: Xray Scan
         run: jf build-scan spring-petclinic 1.0.${{ github.run_number }}
 
+#      # Promote build to production
+#      - name: Promote Build to Production
+#        run: jf rt build-promote spring-petclinic 1.0.${{ github.run_number }} <local-repo> --status=production
+
 
         # Because using "jf rt build-publish" can use 'jf build-scan <build-name> <build-number>"
         # Scans everything associated with the build: maven deps + docker layers
