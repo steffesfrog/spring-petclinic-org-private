@@ -1,70 +1,73 @@
-name: "Frogbot SCA + SAST Automated PRs"
+name: "Frogbot SCA + SAST PR Workflow"
 on:
   pull_request_target:
     types: [opened, synchronize]
-  # Allow manual triggering from GitHub Actions tab
+
+  # ✅ Allow manual triggering from GitHub Actions tab
   workflow_dispatch:
 
 permissions:
   pull-requests: write
-  contents: read
-  id-token: write
+  contents: write
+  security-events: write
+  id-token: write # For OIDC authentication
 
 jobs:
   frogbot-scan:
     runs-on: ubuntu-latest
-    environment: frogbot
+    strategy:
+      matrix:
+        # Scan against main branch
+        branch: ["main"]
 
     steps:
-      # Full checkout to include .git metadata
+      # ✅ Checkout code (shallow clone is fine since we're setting JF_GIT_BASE_BRANCH)
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-    
-      # Run Frogbot with Separate PRs for SCA Fixes
-      - name: Run Frogbot (Separate SCA Fix PRs)
+
+      # ✅ Run Frogbot with Separate PRs for SCA Fixes
+      - name: Frogbot - Separate SCA Fix PRs
         uses: jfrog/frogbot@v2
         env:
-          # JFrog Platform URL
           JF_URL: https://${{ vars.JF_URL }}/
 
-          # Access token with permissions on Xray
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-
-          # GitHub token (auto-generated)
+          # GitHub token
           JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          # Command to install dependencies
-          JF_INSTALL_DEPS_CMD: "mvn clean install"
+          # Dynamically set the base branch for PR scans
+          JF_GIT_BASE_BRANCH: ${{ github.event.pull_request.base.ref || matrix.branch }}
 
           # SCA auto-remediation enabled (creates individual PRs)
           JF_GIT_AGGREGATE_FIXES: "FALSE"
           JF_FIXABLE_ONLY: "TRUE"
           JF_SCAN: "sca"
 
-      # Run Frogbot with Aggregated SCA Fix PR
-      - name: Run Frogbot (Aggregated SCA Fix PR)
+        with:
+          oidc-provider-name: frogbot
+
+      # ✅ Run Frogbot with Aggregated SCA Fix PR
+      - name: Frogbot - Aggregated SCA Fix PR
         uses: jfrog/frogbot@v2
         env:
           JF_URL: https://${{ vars.JF_URL }}/
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
           JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JF_INSTALL_DEPS_CMD: "mvn clean install"
+          JF_GIT_BASE_BRANCH: ${{ github.event.pull_request.base.ref || matrix.branch }}
 
           # Aggregate all fixes into a single PR
           JF_GIT_AGGREGATE_FIXES: "TRUE"
           JF_FIXABLE_ONLY: "TRUE"
           JF_SCAN: "sca"
 
-      # Run Frogbot for SAST Scan (no auto-fix, add PR comments)
-      - name: Run Frogbot SAST Scan
+        with:
+          oidc-provider-name: frogbot
+
+      # ✅ Run Frogbot for SAST Scan (no auto-fix, add PR comments)
+      - name: Frogbot - SAST Scan
         uses: jfrog/frogbot@v2
         env:
           JF_URL: https://${{ vars.JF_URL }}/
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
           JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JF_INSTALL_DEPS_CMD: "mvn clean install"
+          JF_GIT_BASE_BRANCH: ${{ github.event.pull_request.base.ref || matrix.branch }}
 
           # Enable SAST scanning
           JF_SCAN: "sast"
