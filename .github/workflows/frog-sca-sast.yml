@@ -16,6 +16,12 @@ jobs:
     environment: frogbot
 
     steps:
+      # Full checkout to include .git metadata
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+    
       # Run Frogbot with Separate PRs for SCA Fixes
       - name: Run Frogbot (Separate SCA Fix PRs)
         uses: jfrog/frogbot@v2
