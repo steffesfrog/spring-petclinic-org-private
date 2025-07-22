@@ -1,0 +1,71 @@
+name: "Frogbot SCA + SAST Automated PRs"
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+  id-token: write
+
+jobs:
+  frogbot-scan:
+    runs-on: ubuntu-latest
+    environment: frogbot
+
+    steps:
+      # Run Frogbot with Separate PRs for SCA Fixes
+      - name: Run Frogbot (Separate SCA Fix PRs)
+        uses: jfrog/frogbot@v2
+        env:
+          # JFrog Platform URL
+          JF_URL: https://${{ vars.JF_URL }}/
+
+          # Access token with permissions on Xray
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+
+          # GitHub token (auto-generated)
+          JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # Command to install dependencies
+          JF_INSTALL_DEPS_CMD: "mvn clean install"
+
+          # SCA auto-remediation enabled (creates individual PRs)
+          JF_GIT_AGGREGATE_FIXES: "FALSE"
+          JF_FIXABLE_ONLY: "TRUE"
+          JF_SCAN: "sca"
+
+      # Run Frogbot with Aggregated SCA Fix PR
+      - name: Run Frogbot (Aggregated SCA Fix PR)
+        uses: jfrog/frogbot@v2
+        env:
+          JF_URL: https://${{ vars.JF_URL }}/
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+          JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JF_INSTALL_DEPS_CMD: "mvn clean install"
+
+          # Aggregate all fixes into a single PR
+          JF_GIT_AGGREGATE_FIXES: "TRUE"
+          JF_FIXABLE_ONLY: "TRUE"
+          JF_SCAN: "sca"
+
+      # Run Frogbot for SAST Scan (no auto-fix, add PR comments)
+      - name: Run Frogbot SAST Scan
+        uses: jfrog/frogbot@v2
+        env:
+          JF_URL: https://${{ vars.JF_URL }}/
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+          JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JF_INSTALL_DEPS_CMD: "mvn clean install"
+
+          # Enable SAST scanning
+          JF_SCAN: "sast"
+
+          # Fail workflow on High/Critical SAST issues
+          JF_MIN_SEVERITY: "High"
+          JF_FIXABLE_ONLY: "FALSE"
+          JF_INCLUDE_ALL_VULNERABILITIES: "TRUE"
+          JF_AVOID_PREVIOUS_PR_COMMENTS_DELETION: "TRUE"
+
+        with:
+          oidc-provider-name: frogbot
